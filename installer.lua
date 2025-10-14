@@ -7,19 +7,33 @@ local apiUrl = "https://api.github.com/repos/" .. repo .. "/git/trees/" .. branc
 local rawUrlPrefix = "https://raw.githubusercontent.com/" .. repo .. "/" .. branch .. "/"
 local whitelistDirs = { "apps", "lib", "src" } -- e.g., {"dir1", "dir2/subdir"}; set to nil or {} to download all files
 
-local headers = {}
-if token then
-  headers["Authorization"] = "token " .. token
+local function createHeaders(isApiRequest)
+  local headers = {}
+  if token then
+    headers["Authorization"] = "token " .. token
+  end
+  if isApiRequest then
+    headers["Accept"] = "application/vnd.github.v3+json"
+  end
+  return headers
 end
-headers["Accept"] = "application/vnd.github.v3+json"
 
-local function httpGet(url, headers)
+local function httpGet(url, isApiRequest)
+  local headers = createHeaders(isApiRequest)
+  local ok, err = http.checkURL(url)
+  if not ok then
+    error("Invalid URL or HTTP disabled: " .. err)
+  end
   local request = http.get(url, headers)
   if not request then
     error("Failed to make HTTP request to " .. url)
   end
   local response = request.readAll()
+  local status = request.getResponseCode and request.getResponseCode() or 200
   request.close()
+  if status ~= 200 then
+    error("HTTP request failed with status " .. status .. " for " .. url)
+  end
   return response
 end
 
@@ -40,7 +54,7 @@ end
 local function downloadFile(path)
   local url = rawUrlPrefix .. path
   print("Downloading: " .. path)
-  local content = httpGet(url, {})
+  local content = httpGet(url, false)
   ensureDirectory(path)
   local file = fs.open(path, "w")
   if file then
@@ -48,7 +62,7 @@ local function downloadFile(path)
     file.close()
     print("Saved: " .. path)
   else
-    print("Failed to save: " .. path)
+    error("Failed to save file: " .. path)
   end
 end
 
@@ -57,7 +71,7 @@ local function isWhitelisted(path, whitelist)
     return true
   end
   for _, dir in ipairs(whitelist) do
-    if path:sub(1, #dir + 1) == dir .. "/" or path == dir then
+    if path:sub(1, #dir + 1) == dir .. "/" then
       return true
     end
   end
@@ -65,9 +79,8 @@ local function isWhitelisted(path, whitelist)
 end
 
 local function downloadTree()
-  local response = httpGet(apiUrl, headers)
+  local response = httpGet(apiUrl, true)
   local data = textutils.unserializeJSON(response)
-
   if not data or not data.tree then
     error("Failed to parse tree data or no tree found")
   end
