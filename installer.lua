@@ -6,6 +6,7 @@ local branch = "main"
 local apiUrl = "https://api.github.com/repos/" .. repo .. "/git/trees/" .. branch .. "?recursive=1"
 local rawUrlPrefix = "https://raw.githubusercontent.com/" .. repo .. "/" .. branch .. "/"
 local whitelistDirs = { "apps", "lib", "src" } -- e.g., {"dir1", "dir2/subdir"}; set to nil or {} to download all files
+local installedFiles = {}
 
 local function createHeaders(isApiRequest)
   local headers = {}
@@ -88,13 +89,23 @@ local function downloadTree()
   for _, item in ipairs(data.tree) do
     if item.type == "blob" and isWhitelisted(item.path, whitelistDirs) then
       downloadFile(item.path)
+      table.insert(installedFiles, item.path)
     end
   end
+end
+
+local function saveCreatedFilePaths()
+  if #textutils == 0 then return end
+  local toSave = textutils.serialise(installedFiles)
+  local file = fs.open("/appdata/installer/files.txt", "w")
+  file.write(toSave)
+  file.close()
 end
 
 local success, err = pcall(downloadTree)
 if not success then
   print("Error: " .. err)
 else
+  saveCreatedFilePaths()
   print("Download complete. You may now remove this file.")
 end
