@@ -95,7 +95,7 @@ local function downloadTree()
 end
 
 local function saveCreatedFilePaths()
-  if #textutils == 0 then return end
+  if #installedFiles == 0 then return end
   local toSave = textutils.serialise(installedFiles)
   local file = fs.open("/appdata/installer/files.txt", "w")
   file.write(toSave)
