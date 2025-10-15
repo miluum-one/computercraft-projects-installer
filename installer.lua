@@ -7,6 +7,7 @@ local apiUrl = "https://api.github.com/repos/" .. repo .. "/git/trees/" .. branc
 local rawUrlPrefix = "https://raw.githubusercontent.com/" .. repo .. "/" .. branch .. "/"
 local whitelistDirs = { "apps", "lib", "src" } -- e.g., {"dir1", "dir2/subdir"}; set to nil or {} to download all files
 local installedFiles = {}
+local createdDirectories = {}
 
 local function createHeaders(isApiRequest)
   local headers = {}
@@ -48,6 +49,7 @@ local function ensureDirectory(path)
     current = current .. (i == 1 and "" or "/") .. parts[i]
     if not fs.exists(current) then
       fs.makeDir(current)
+      table.insert(createdDirectories, current)
     end
   end
 end
@@ -62,6 +64,7 @@ local function downloadFile(path)
     file.write(content)
     file.close()
     print("Saved: " .. path)
+    table.insert(installedFiles, path)
   else
     error("Failed to save file: " .. path)
   end
@@ -89,7 +92,6 @@ local function downloadTree()
   for _, item in ipairs(data.tree) do
     if item.type == "blob" and isWhitelisted(item.path, whitelistDirs) then
       downloadFile(item.path)
-      table.insert(installedFiles, item.path)
     end
   end
 end
@@ -102,10 +104,19 @@ local function saveCreatedFilePaths()
   file.close()
 end
 
+local function saveCreatedDirectories()
+  if #createdDirectories == 0 then return end
+  local toSave = textutils.serialise(createdDirectories)
+  local file = fs.open("/appdata/installer/dirs.txt", "w")
+  file.write(toSave)
+  file.close()
+end
+
 local success, err = pcall(downloadTree)
 if not success then
   print("Error: " .. err)
 else
   saveCreatedFilePaths()
+  saveCreatedDirectories()
   print("Download complete. You may now remove this file.")
 end
