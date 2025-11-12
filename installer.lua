@@ -1,5 +1,10 @@
 -- Installer for Milos ComputerCraft Projects
 local token = arg[1]
+if not token then
+  print("Please enter your token:")
+  write("> ")
+  token = read()
+end
 
 local repo = "miluum-one/computercraft-projects"
 local branch = "main"
@@ -83,11 +88,6 @@ local function isWhitelisted(path, whitelist)
 end
 
 local function downloadTree()
-  if not token then
-    print("Please enter your token:")
-    write("> ")
-    token = read()
-  end
   local response = httpGet(apiUrl, true)
   local data = textutils.unserializeJSON(response)
   if not data or not data.tree then
